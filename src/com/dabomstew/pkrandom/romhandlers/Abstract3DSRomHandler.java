@@ -63,9 +63,10 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
         // Load inner rom
         try {
             // A directory means a game that was already extracted into RomFS/ExeFS folders
-            folderMode = new File(filename).isDirectory();
+            File folder = FolderNCCH.folderFor(filename);
+            folderMode = folder != null;
             if (folderMode) {
-                baseRom = new FolderNCCH(new File(filename), productCode, titleId);
+                baseRom = new FolderNCCH(folder, productCode, titleId);
             } else {
                 baseRom = new NCCH(filename, productCode, titleId);
             }
@@ -96,8 +97,8 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     @Override
     public boolean saveRomFile(String filename, long seed) {
         if (folderMode) {
-            throw new RandomizerIOException("Un juego cargado desde carpetas no se puede guardar como ROM (.cxi); "
-                    + "guárdalo en carpetas.");
+            throw new RandomizerIOException("Un juego cargado desde carpetas no se puede guardar como ROM (.cxi). "
+                    + "Elige 'LayeredFS' al guardar (o la carpeta del juego para sobrescribirla con backup).");
         }
         try {
             savingROM();
@@ -116,7 +117,8 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     public boolean saveRomDirectory(String filename) {
         try {
             savingROM();
-            if (folderMode && folderOverwriteOnSave) {
+            if (folderMode && (folderOverwriteOnSave || isLoadedFolder(filename))) {
+                // Choosing the loaded game folder itself as the output means "overwrite it" (with a backup)
                 ((FolderNCCH) baseRom).saveInPlace();
             } else {
                 baseRom.saveAsLayeredFS(filename);
@@ -136,6 +138,11 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     // the originals) instead of writing them to a separate output folder
     public void setFolderOverwriteOnSave(boolean overwrite) {
         this.folderOverwriteOnSave = overwrite;
+    }
+
+    private boolean isLoadedFolder(String outputPath) throws IOException {
+        File loaded = ((FolderNCCH) baseRom).getRootDir().getCanonicalFile();
+        return new File(outputPath).getCanonicalFile().equals(loaded);
     }
 
     protected abstract boolean isGameUpdateSupported(int version);
@@ -281,8 +288,9 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     }
 
     protected static String getProductCodeFromFile(String filename) {
-        if (new File(filename).isDirectory()) {
-            return FolderNCCH.detectProductCode(new File(filename));
+        File folder = FolderNCCH.folderFor(filename);
+        if (folder != null) {
+            return FolderNCCH.detectProductCode(folder);
         }
         try {
             long ncchStartingOffset = NCCH.getCXIOffsetInFile(filename);
@@ -300,8 +308,9 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     }
 
     public static String getTitleIdFromFile(String filename) {
-        if (new File(filename).isDirectory()) {
-            return FolderNCCH.detectTitleId(new File(filename));
+        File folder = FolderNCCH.folderFor(filename);
+        if (folder != null) {
+            return FolderNCCH.detectTitleId(folder);
         }
         try {
             long ncchStartingOffset = NCCH.getCXIOffsetInFile(filename);

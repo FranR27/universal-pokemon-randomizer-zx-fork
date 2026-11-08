@@ -40,6 +40,10 @@ public class ROMFilter extends FileFilter {
             return true; // needed to allow directory navigation
         }
         String filename = arg0.getName();
+        // Marker file inside an extracted RomFS/ExeFS game folder
+        if (com.dabomstew.pkrandom.ctr.FolderNCCH.isMarkerFileName(filename)) {
+            return true;
+        }
         if (!filename.contains(".")) {
             return false;
         }
@@ -51,7 +55,7 @@ public class ROMFilter extends FileFilter {
 
     @Override
     public String getDescription() {
-        return "Nintendo GB(C/A)/(3)DS ROM File (*.gb,*.sgb,*.gbc,*.gba,*.nds,*.3ds,*.cci,*.cxi,*.cia,*.app)";
+        return "Nintendo GB(C/A)/(3)DS ROM File (*.gb,*.sgb,*.gbc,*.gba,*.nds,*.3ds,*.cci,*.cxi,*.cia,*.app) o archivo marcador de carpeta (uvr_game.properties, ExHeader.bin, HeaderNCCH0.bin)";
     }
 
 }

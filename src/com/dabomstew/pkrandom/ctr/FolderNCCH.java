@@ -111,8 +111,31 @@ public class FolderNCCH extends NCCH {
 
     // ------------------------------------------------------------------ detection
 
-    public static boolean isFolder(String filename) {
-        return new File(filename).isDirectory();
+    // Files that can be picked in the ROM chooser to mean "the game folder this file is in"
+    private static final String[] MARKER_FILE_NAMES = {GAME_PROPERTIES_FILE, "exheader.bin", "headerncch0.bin", "ncchheader.bin"};
+
+    public static boolean isMarkerFileName(String name) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        for (String marker : MARKER_FILE_NAMES) {
+            if (lower.equals(marker)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns the game folder for a path the user picked, or null if it is a normal ROM file. The path can be
+     * the folder itself or one of the marker files inside it (uvr_game.properties, ExHeader.bin, HeaderNCCH0.bin),
+     * which lets file-only choosers select a folder.
+     */
+    public static File folderFor(String filename) {
+        File f = new File(filename);
+        if (f.isDirectory()) {
+            return f;
+        }
+        if (f.isFile() && isMarkerFileName(f.getName())) {
+            return f.getAbsoluteFile().getParentFile();
+        }
+        return null;
     }
 
     public static String detectProductCode(File dir) {
