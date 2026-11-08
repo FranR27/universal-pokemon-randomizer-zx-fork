@@ -646,6 +646,8 @@ public class NewRandomizerGUI {
         wikiLinkLabel.setCursor(new java.awt.Cursor(Cursor.HAND_CURSOR));
 
         romOpenChooser.setFileFilter(new ROMFilter());
+        // Allows picking an extracted RomFS/ExeFS folder (3DS games) instead of a ROM file
+        romOpenChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
 
         romSaveChooser.setDialogType(javax.swing.JFileChooser.SAVE_DIALOG);
         romSaveChooser.setFileFilter(new ROMFilter());
@@ -734,7 +736,9 @@ public class NewRandomizerGUI {
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             final File fh = romOpenChooser.getSelectedFile();
             try {
-                Utils.validateRomFile(fh);
+                if (!fh.isDirectory()) {
+                    Utils.validateRomFile(fh);
+                }
             } catch (Utils.InvalidROMException e) {
                 switch (e.getType()) {
                     case LENGTH:
@@ -800,6 +804,15 @@ public class NewRandomizerGUI {
                     return;
                 }
             }
+            if (fh.isDirectory()) {
+                JOptionPane.showMessageDialog(mainPanel,
+                        "No se pudo reconocer el juego en la carpeta \"" + fh.getName() + "\".\n\n"
+                        + "La carpeta debe contener 'romfs' y 'exefs' (o 'ExtractedRomFS' y 'ExtractedExeFS'),\n"
+                        + "y junto a ellas el archivo de cabecera NCCH (por ejemplo HeaderNCCH0.bin) o ExHeader.bin,\n"
+                        + "o un archivo '" + com.dabomstew.pkrandom.ctr.FolderNCCH.GAME_PROPERTIES_FILE + "' con:\n"
+                        + "productCode=CTR-P-A2BA\ntitleId=00040000001B5100");
+                return;
+            }
             JOptionPane.showMessageDialog(mainPanel,
                     String.format(bundle.getString("GUI.unsupportedRom"), fh.getName()));
         }
@@ -822,7 +835,24 @@ public class NewRandomizerGUI {
             JOptionPane.showMessageDialog(frame, bundle.getString("GUI.pokeLimitNotChosen"));
             return;
         }
-        SaveType outputType = askForSaveType();
+        SaveType chosenType;
+        boolean overwriteLoadedFolders = false;
+        if (romHandler instanceof Abstract3DSRomHandler && ((Abstract3DSRomHandler) romHandler).isFolderMode()) {
+            // Game loaded from RomFS/ExeFS folders: there is no ROM to build, so it is always saved as folders
+            chosenType = SaveType.DIRECTORY;
+            if (!batchRandomizationSettings.isBatchRandomizationEnabled()) {
+                int folderChoice = askFolderSaveMode();
+                if (folderChoice < 0) {
+                    chosenType = SaveType.INVALID;
+                } else {
+                    overwriteLoadedFolders = folderChoice == 0;
+                }
+            }
+            ((Abstract3DSRomHandler) romHandler).setFolderOverwriteOnSave(overwriteLoadedFolders);
+        } else {
+            chosenType = askForSaveType();
+        }
+        final SaveType outputType = chosenType;
         romSaveChooser.setSelectedFile(null);
         boolean allowed = false;
         File fh = null;
@@ -847,6 +877,9 @@ public class NewRandomizerGUI {
                     }
                 }
             }
+        } else if (outputType == SaveType.DIRECTORY && overwriteLoadedFolders) {
+            fh = new File(romHandler.loadedFilename());
+            allowed = true;
         } else if (outputType == SaveType.DIRECTORY) {
             romSaveChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             int returnVal = romSaveChooser.showSaveDialog(frame);
@@ -1208,6 +1241,19 @@ public class NewRandomizerGUI {
 
     private enum SaveType {
         FILE, DIRECTORY, INVALID
+    }
+
+    // Returns 0 to overwrite the loaded folders, 1 to write only the changed files to another folder, -1 if cancelled
+    private int askFolderSaveMode() {
+        Object[] options = {"Sobrescribir las carpetas cargadas (con backup)", "Solo los archivos modificados, en otra carpeta"};
+        String message = "El juego se cargó desde carpetas, así que no se genera una ROM.\n\n"
+                + "Sobrescribir: los archivos modificados se escriben sobre las carpetas cargadas. Antes se copia el\n"
+                + "original de cada archivo a una carpeta '<nombre>_uvr_backup' junto a la carpeta cargada.\n"
+                + "No vuelvas a randomizar sobre las mismas carpetas sin restaurar ese backup.\n\n"
+                + "Otra carpeta: solo se escriben los archivos modificados (<titleId>/romfs y exefs/code.bin),\n"
+                + "sin tocar las carpetas cargadas.";
+        return JOptionPane.showOptionDialog(frame, message, "Guardar carpetas", JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
     }
 
     private SaveType askForSaveType() {

@@ -68,6 +68,12 @@ public class CliRandomizer {
                         }
                         saveAsDirectory = true;
                     }
+                    if (romHandler instanceof Abstract3DSRomHandler && ((Abstract3DSRomHandler) romHandler).isFolderMode()) {
+                        if (!saveAsDirectory) {
+                            printWarning("The game was loaded from folders, so it can only be saved as a directory; forcing \"-d\".");
+                        }
+                        saveAsDirectory = true;
+                    }
                     if (saveAsDirectory && romHandler.generationOfPokemon() != 6 && romHandler.generationOfPokemon() != 7) {
                         saveAsDirectory = false;
                         printWarning("Saving as directory does not make sense for non-3DS games, ignoring \"-d\" flag...");

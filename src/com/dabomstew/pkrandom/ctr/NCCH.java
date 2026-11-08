@@ -70,6 +70,9 @@ public class NCCH {
     private static final int level3_header_size = 0x28;
     private static final int metadata_unused = 0xFFFFFFFF;
 
+    // Used by FolderNCCH, which reads an already-extracted RomFS/ExeFS from disk instead of a ROM image.
+    protected NCCH() { }
+
     public NCCH(String filename, String productCode, String titleId) throws IOException {
         this.romFilename = filename;
         this.baseRom = new RandomAccessFile(filename, "r");
@@ -597,7 +600,14 @@ public class NCCH {
 
         if (codeChanged) {
             byte[] code = getCode();
+            // Luma3DS reads code.bin from the title folder root, while Citra/Azahar read it from exefs/.
+            // Writing both keeps the output usable on console and on emulators.
             FileOutputStream fos = new FileOutputStream(new File(layeredFSRootPath + "code.bin"));
+            fos.write(code);
+            fos.close();
+            File exefsDir = new File(layeredFSRootPath + "exefs" + File.separator);
+            exefsDir.mkdirs();
+            fos = new FileOutputStream(new File(exefsDir, "code.bin"));
             fos.write(code);
             fos.close();
         }

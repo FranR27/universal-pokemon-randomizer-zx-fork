@@ -25,6 +25,7 @@ package com.dabomstew.pkrandom.romhandlers;
 /*----------------------------------------------------------------------------*/
 
 import com.dabomstew.pkrandom.FileFunctions;
+import com.dabomstew.pkrandom.ctr.FolderNCCH;
 import com.dabomstew.pkrandom.ctr.GARCArchive;
 import com.dabomstew.pkrandom.ctr.NCCH;
 import com.dabomstew.pkrandom.exceptions.CannotWriteToLocationException;
@@ -32,6 +33,7 @@ import com.dabomstew.pkrandom.exceptions.EncryptedROMException;
 import com.dabomstew.pkrandom.exceptions.RandomizerIOException;
 import com.dabomstew.pkrandom.pokemon.Type;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -44,6 +46,8 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     private NCCH baseRom;
     private NCCH gameUpdate;
     private String loadedFN;
+    private boolean folderMode;
+    private boolean folderOverwriteOnSave;
 
     public Abstract3DSRomHandler(Random random, PrintStream logStream) {
         super(random, logStream);
@@ -58,7 +62,13 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
         }
         // Load inner rom
         try {
-            baseRom = new NCCH(filename, productCode, titleId);
+            // A directory means a game that was already extracted into RomFS/ExeFS folders
+            folderMode = new File(filename).isDirectory();
+            if (folderMode) {
+                baseRom = new FolderNCCH(new File(filename), productCode, titleId);
+            } else {
+                baseRom = new NCCH(filename, productCode, titleId);
+            }
             if (!baseRom.isDecrypted()) {
                 throw new EncryptedROMException(filename);
             }
@@ -85,6 +95,10 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
 
     @Override
     public boolean saveRomFile(String filename, long seed) {
+        if (folderMode) {
+            throw new RandomizerIOException("Un juego cargado desde carpetas no se puede guardar como ROM (.cxi); "
+                    + "guárdalo en carpetas.");
+        }
         try {
             savingROM();
             baseRom.saveAsNCCH(filename, getGameAcronym(), seed);
@@ -102,11 +116,26 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     public boolean saveRomDirectory(String filename) {
         try {
             savingROM();
-            baseRom.saveAsLayeredFS(filename);
+            if (folderMode && folderOverwriteOnSave) {
+                ((FolderNCCH) baseRom).saveInPlace();
+            } else {
+                baseRom.saveAsLayeredFS(filename);
+            }
         } catch (IOException e) {
             throw new RandomizerIOException(e);
         }
         return true;
+    }
+
+    // True when the game was loaded from extracted RomFS/ExeFS folders instead of a ROM image
+    public boolean isFolderMode() {
+        return folderMode;
+    }
+
+    // Folder mode only: when set, saving writes the changed files over the loaded folders (keeping a backup of
+    // the originals) instead of writing them to a separate output folder
+    public void setFolderOverwriteOnSave(boolean overwrite) {
+        this.folderOverwriteOnSave = overwrite;
     }
 
     protected abstract boolean isGameUpdateSupported(int version);
@@ -252,6 +281,9 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     }
 
     protected static String getProductCodeFromFile(String filename) {
+        if (new File(filename).isDirectory()) {
+            return FolderNCCH.detectProductCode(new File(filename));
+        }
         try {
             long ncchStartingOffset = NCCH.getCXIOffsetInFile(filename);
             if (ncchStartingOffset == -1) {
@@ -268,6 +300,9 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     }
 
     public static String getTitleIdFromFile(String filename) {
+        if (new File(filename).isDirectory()) {
+            return FolderNCCH.detectTitleId(new File(filename));
+        }
         try {
             long ncchStartingOffset = NCCH.getCXIOffsetInFile(filename);
             if (ncchStartingOffset == -1) {
