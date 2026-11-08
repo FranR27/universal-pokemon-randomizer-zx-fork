@@ -43,6 +43,10 @@ import com.dabomstew.pkrandom.newgui.NewRandomizerGUI;
 public class Utils {
 
     public static void validateRomFile(File fh) throws InvalidROMException {
+        // An extracted RomFS/ExeFS game folder is not a ROM file, so there is nothing to check
+        if (fh.isDirectory()) {
+            return;
+        }
         // first, check for common filetypes that aren't ROMs
         // read first 10 bytes of the file to do this
         try {
