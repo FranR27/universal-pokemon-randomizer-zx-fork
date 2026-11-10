@@ -579,7 +579,11 @@ public class Gen7RomHandler extends Abstract3DSRomHandler {
                         if (pk.baseForme != null && pk.baseForme.number == Species.rockruff && pk.formeNumber > 0) {
                             evol.from = pk.baseForme;
                             pk.baseForme.evolutionsFrom.add(evol);
-                            pokes[absolutePokeNumByBaseForme.get(species).get(evol.forme)].evolutionsTo.add(evol);
+                            Map<Integer, Integer> rockruffFormes = absolutePokeNumByBaseForme.get(species);
+                            Integer rockruffTarget = rockruffFormes == null ? null : rockruffFormes.get(evol.forme);
+                            if (rockruffTarget != null) {
+                                pokes[rockruffTarget].evolutionsTo.add(evol);
+                            }
                         }
                         if (!pk.evolutionsFrom.contains(evol)) {
                             pk.evolutionsFrom.add(evol);
@@ -592,8 +596,13 @@ public class Gen7RomHandler extends Abstract3DSRomHandler {
                                     // absolutePokeNumByBaseFormeMap will be null, since there's no secondary species
                                     // entry for this forme.
                                     Map<Integer, Integer> absolutePokeNumByBaseFormeMap = absolutePokeNumByBaseForme.get(species);
+                                    // The expansion mod can reference a forme number that has no secondary species entry;
+                                    // treat it like a cosmetic forme instead of failing to load.
                                     if (absolutePokeNumByBaseFormeMap != null) {
-                                        species = absolutePokeNumByBaseFormeMap.get(evol.forme);
+                                        Integer altSpecies = absolutePokeNumByBaseFormeMap.get(evol.forme);
+                                        if (altSpecies != null) {
+                                            species = altSpecies;
+                                        }
                                     }
                                 }
                                 pokes[species].evolutionsTo.add(evol);
@@ -651,6 +660,10 @@ public class Gen7RomHandler extends Abstract3DSRomHandler {
                         int megaSpecies = absolutePokeNumByBaseForme
                                 .getOrDefault(pk.number,dummyAbsolutePokeNums)
                                 .getOrDefault(formNum,0);
+                        if (megaSpecies <= 0 || megaSpecies >= pokes.length || pokes[megaSpecies] == null) {
+                            // The mod references a mega forme that has no species entry; skip it instead of failing
+                            continue;
+                        }
                         MegaEvolution megaEvo = new MegaEvolution(pk, pokes[megaSpecies], method, argument);
                         if (!pk.megaEvolutionsFrom.contains(megaEvo)) {
                             pk.megaEvolutionsFrom.add(megaEvo);
