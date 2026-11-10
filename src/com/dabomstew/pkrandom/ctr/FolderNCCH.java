@@ -112,7 +112,8 @@ public class FolderNCCH extends NCCH {
     // ------------------------------------------------------------------ detection
 
     // Files that can be picked in the ROM chooser to mean "the game folder this file is in"
-    private static final String[] MARKER_FILE_NAMES = {GAME_PROPERTIES_FILE, "exheader.bin", "headerncch0.bin", "ncchheader.bin"};
+    private static final String[] MARKER_FILE_NAMES = {GAME_PROPERTIES_FILE, "exheader.bin", "decryptedexheader.bin",
+            "headerncch0.bin", "ncchheader.bin"};
 
     public static boolean isMarkerFileName(String name) {
         String lower = name.toLowerCase(Locale.ROOT);
@@ -136,6 +137,16 @@ public class FolderNCCH extends NCCH {
             return f.getAbsoluteFile().getParentFile();
         }
         return null;
+    }
+
+    /** True if dir is a game folder FolderNCCH can load (a romfs folder plus a code.bin). */
+    public static boolean looksLikeGameFolder(File dir) {
+        try {
+            Layout l = resolve(dir);
+            return l != null && l.codeFile != null;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     public static String detectProductCode(File dir) {
@@ -190,7 +201,7 @@ public class FolderNCCH extends NCCH {
                 String name = f.getName().toLowerCase(Locale.ROOT);
                 if (l.gameProperties == null && name.equals(GAME_PROPERTIES_FILE)) {
                     l.gameProperties = f;
-                } else if (l.exHeader == null && (name.equals("exheader.bin") || name.equals("exheader"))) {
+                } else if (l.exHeader == null && (name.equals("exheader") || (name.endsWith(".bin") && name.contains("exheader")))) {
                     l.exHeader = f;
                 } else if (l.ncchHeader == null && f.length() == NCCH_HEADER_SIZE && hasNcchMagic(f)) {
                     l.ncchHeader = f;

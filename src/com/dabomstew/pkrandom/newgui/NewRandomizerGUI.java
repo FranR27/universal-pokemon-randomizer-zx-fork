@@ -320,7 +320,7 @@ public class NewRandomizerGUI {
     private List<JCheckBox> tweakCheckBoxes;
     private JPanel liveTweaksPanel = new JPanel();
 
-    private JFileChooser romOpenChooser = new JFileChooser();
+    private JFileChooser romOpenChooser = new FolderAwareFileChooser();
     private JFileChooser romSaveChooser = new JFileChooser();
     private JFileChooser qsOpenChooser = new JFileChooser();
     private JFileChooser qsSaveChooser = new JFileChooser();
