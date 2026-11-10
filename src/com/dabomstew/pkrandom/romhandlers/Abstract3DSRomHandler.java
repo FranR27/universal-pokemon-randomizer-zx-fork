@@ -97,8 +97,12 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     @Override
     public boolean saveRomFile(String filename, long seed) {
         if (folderMode) {
-            throw new RandomizerIOException("Un juego cargado desde carpetas no se puede guardar como ROM (.cxi). "
-                    + "Elige 'LayeredFS' al guardar (o la carpeta del juego para sobrescribirla con backup).");
+            // There is no ROM image to rebuild from loaded folders, so whatever name was chosen in the save dialog
+            // (for example "MiJuego.cxi") is used as an output folder ("MiJuego") with only the changed files.
+            String outputFolder = folderOutputPath(filename);
+            System.out.println("Game was loaded from folders; saving the changed files to " + outputFolder
+                    + " instead of building a ROM.");
+            return saveRomDirectory(outputFolder);
         }
         try {
             savingROM();
@@ -138,6 +142,11 @@ public abstract class Abstract3DSRomHandler extends AbstractRomHandler {
     // the originals) instead of writing them to a separate output folder
     public void setFolderOverwriteOnSave(boolean overwrite) {
         this.folderOverwriteOnSave = overwrite;
+    }
+
+    /** "C:\\out\\MiJuego.cxi" -> "C:\\out\\MiJuego"; a name without a ROM extension is used as is. */
+    public static String folderOutputPath(String filename) {
+        return filename.replaceFirst("(?i)\\.(cxi|3ds|cci|cia|app)$", "");
     }
 
     private boolean isLoadedFolder(String outputPath) throws IOException {
