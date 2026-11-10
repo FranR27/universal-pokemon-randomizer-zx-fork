@@ -55,6 +55,10 @@ public class Gen5RomHandler extends AbstractDSRomHandler {
         }
 
         public boolean isLoadable(String filename) {
+            // A folder (an extracted 3DS game) is not an NDS ROM; opening it as a file would throw
+            if (new java.io.File(filename).isDirectory()) {
+                return false;
+            }
             return detectNDSRomInner(getROMCodeFromFile(filename), getVersionFromFile(filename));
         }
     }
