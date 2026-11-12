@@ -32,7 +32,7 @@ public class RomfsFile {
 
     private NCCH parent;
     public long offset;
-    public int size;
+    public long size;
     public String fullPath;
     private Extracted status = Extracted.NOT;
     private String extFilename;
@@ -49,7 +49,10 @@ public class RomfsFile {
             // extract file
             parent.reopenROM();
             RandomAccessFile rom = parent.getBaseRom();
-            byte[] buf = new byte[this.size];
+            if (this.size > Integer.MAX_VALUE) {
+                throw new IOException("RomFS file is too large to load into memory: " + this.fullPath + " (" + this.size + " bytes)");
+            }
+            byte[] buf = new byte[(int) this.size];
             rom.seek(this.offset);
             rom.readFully(buf);
             originalCRC = FileFunctions.getCRC32(buf);
