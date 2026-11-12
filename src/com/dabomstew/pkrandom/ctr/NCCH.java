@@ -240,7 +240,7 @@ public class NCCH {
         System.out.println("NCCH: Visiting file " + currentPath);
         RomfsFile file = new RomfsFile(this);
         file.offset = fileDataOffset + metadata.fileDataOffset;
-        file.size = (int) metadata.fileDataLength;  // no Pokemon game has a file larger than unsigned int max
+        file.size = metadata.fileDataLength;
         file.fullPath = currentPath;
         metadata.file = file;
         fileMetadataList.add(metadata);
@@ -476,18 +476,26 @@ public class NCCH {
             // Users have sent us bug reports with really bizarre errors here that seem to indicate
             // broken metadata; do this in a try-catch solely so we can log the metadata if we fail
             try {
-                byte[] fileData;
-                if (metadata.file.fileChanged) {
-                    fileData = metadata.file.getOverrideContents();
-                } else {
-                    fileData = new byte[metadata.file.size];
-                    baseRom.seek(metadata.file.offset);
-                    baseRom.readFully(fileData);
-                }
                 long currentDataOffset = newLevel3Offset + fileDataOffset + metadata.fileDataOffset;
                 fNew.seek(currentDataOffset);
-                fNew.write(fileData);
-                endOfFileDataOffset = currentDataOffset + fileData.length;
+                if (metadata.file.fileChanged) {
+                    byte[] fileData = metadata.file.getOverrideContents();
+                    fNew.write(fileData);
+                    endOfFileDataOffset = currentDataOffset + fileData.length;
+                } else {
+                    // Stream original files instead of allocating one byte array for the whole file.
+                    // This supports RomFS entries larger than Integer.MAX_VALUE.
+                    baseRom.seek(metadata.file.offset);
+                    long remaining = metadata.file.size;
+                    byte[] buffer = new byte[1024 * 1024];
+                    while (remaining > 0) {
+                        int bytesToRead = (int) Math.min(buffer.length, remaining);
+                        baseRom.readFully(buffer, 0, bytesToRead);
+                        fNew.write(buffer, 0, bytesToRead);
+                        remaining -= bytesToRead;
+                    }
+                    endOfFileDataOffset = currentDataOffset + metadata.file.size;
+                }
             } catch (Exception e) {
                 String message = String.format("Error when building romfs: File: %s, offset: %s, size: %s",
                         metadata.file.fullPath, metadata.offset, metadata.file.size);
