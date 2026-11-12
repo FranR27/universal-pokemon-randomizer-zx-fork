@@ -1,1 +1,1 @@
-Build workflow for work/expansion-items-randomizer is configured in build.yml.
+The workflow builds a Windows package containing PokeRandoZX.jar and launcher_WINDOWS.bat.
