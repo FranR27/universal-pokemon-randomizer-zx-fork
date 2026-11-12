@@ -339,10 +339,13 @@ public class NCCH {
         // make the output length agree with the rebuilt RomFS end.
         long newContentLength = alignLong(newRomfsOffset + newRomfsLength, media_unit_size);
         fNew.setLength(newContentLength);
-        byte[] contentSize = new byte[8];
-        FileFunctions.writeFullLong(contentSize, 0, newContentLength / media_unit_size);
-        fNew.seek(0x104);
-        fNew.write(contentSize);
+        long contentSizeInMediaUnits = newContentLength / media_unit_size;
+        if (contentSizeInMediaUnits > 0xFFFFFFFFL) {
+            throw new IOException("NCCH content is too large for the 32-bit content size field.");
+        }
+        // NCCH content size at 0x104 is a 32-bit field. Writing 8 bytes here
+        // would overwrite the partition ID at 0x108 and make the CXI invalid.
+        writeIntLE(fNew, 0x104, (int) contentSizeInMediaUnits);
 
         // While totally optional, let's zero out the NCCH signature so that
         // it's clear this isn't a properly-signed ROM
