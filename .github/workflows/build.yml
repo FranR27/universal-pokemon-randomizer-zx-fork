@@ -16,27 +16,24 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '8'
+          java-version: '17'
 
-      - name: Compile Java sources
-        shell: bash
-        run: |
-          mkdir -p build/classes
-          find src -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "src" -d build/classes
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-      - name: Copy resources
-        run: |
-          find src -type f ! -name '*.java' ! -name '*.form' -exec sh -c 'mkdir -p "build/classes/$(dirname "$1" | sed "s#^src/##")"; cp "$1" "build/classes/$(echo "$1" | sed "s#^src/##")"' _ {} \;
+      - name: Compile and instrument IntelliJ GUI forms
+        run: gradle --no-daemon clean jar
 
       - name: Package randomizer and Windows launcher
         run: |
           mkdir -p dist
-          printf 'Main-Class: com.dabomstew.pkrandom.newgui.NewRandomizerGUI\n' > build/MANIFEST.MF
-          jar cfm dist/PokeRandoZX.jar build/MANIFEST.MF -C build/classes .
+          cp build/libs/PokeRandoZX.jar dist/
           cp launcher/launcher_WINDOWS.bat dist/
           cd dist
           zip -9 Universal-Pokemon-Randomizer-ZX-Windows.zip PokeRandoZX.jar launcher_WINDOWS.bat
