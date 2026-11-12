@@ -1,0 +1,46 @@
+name: Build Randomizer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - work/expansion-items-randomizer
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Compile Java sources
+        shell: bash
+        run: |
+          mkdir -p build/classes
+          find src -name '*.java' -print0 | xargs -0 javac -encoding UTF-8 -source 8 -target 8 -cp "src" -d build/classes
+
+      - name: Copy resources
+        run: |
+          cp -R src/com build/classes/
+          find src -type f ! -name '*.java' ! -name '*.form' -exec sh -c 'mkdir -p "build/classes/$(dirname "$1" | sed "s#^src/##")"; cp "$1" "build/classes/$(echo "$1" | sed "s#^src/##")"' _ {} \;
+
+      - name: Package executable JAR
+        run: |
+          printf 'Main-Class: com.dabomstew.pkrandom.newgui.NewRandomizerGUI\n' > build/MANIFEST.MF
+          jar cfm build/Universal-Pokemon-Randomizer-ZX.jar build/MANIFEST.MF -C build/classes .
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal-Pokemon-Randomizer-ZX
+          path: build/Universal-Pokemon-Randomizer-ZX.jar
+          if-no-files-found: error
