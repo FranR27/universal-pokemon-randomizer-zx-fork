@@ -255,6 +255,8 @@ public class NCCH {
 
         // Initialize new ROM
         RandomAccessFile fNew = new RandomAccessFile(filename, "rw");
+        // Never leave trailing bytes from a previous output file.
+        fNew.setLength(0);
 
         // Read the header and exheader and write it to the output ROM
         byte[] header = new byte[header_and_exheader_size];
@@ -283,8 +285,7 @@ public class NCCH {
             long newLogoOffset = header_and_exheader_size;
             fNew.seek(newLogoOffset);
             fNew.write(logo);
-            fNew.seek(0x198);
-            fNew.write((int) newLogoOffset / media_unit_size);
+            writeIntLE(fNew, 0x198, (int) (newLogoOffset / media_unit_size));
         }
 
         // The plain region is even smaller (1KB) so repeat the same process
@@ -297,8 +298,7 @@ public class NCCH {
             long newPlainOffset = header_and_exheader_size + logoLength;
             fNew.seek(newPlainOffset);
             fNew.write(plain);
-            fNew.seek(0x190);
-            fNew.write((int) newPlainOffset / media_unit_size);
+            writeIntLE(fNew, 0x190, (int) (newPlainOffset / media_unit_size));
         }
 
         // Update the SMDH so that Citra displays the seed in the title
@@ -308,19 +308,15 @@ public class NCCH {
         // Now, reconstruct the exefs based on our new version of .code and our new SMDH
         long newExefsOffset = header_and_exheader_size + logoLength + plainLength;
         long newExefsLength = rebuildExefs(fNew, newExefsOffset);
-        fNew.seek(0x1A0);
-        fNew.write((int) newExefsOffset / media_unit_size);
-        fNew.seek(0x1A4);
-        fNew.write((int) newExefsLength / media_unit_size);
+        writeIntLE(fNew, 0x1A0, (int) (newExefsOffset / media_unit_size));
+        writeIntLE(fNew, 0x1A4, (int) (newExefsLength / media_unit_size));
 
         // Then, reconstruct the romfs
         // TODO: Fix the yet-unsolved alignment issues in rebuildRomfs when you remove this align
         long newRomfsOffset = alignLong(header_and_exheader_size + logoLength + plainLength + newExefsLength, 4096);
         long newRomfsLength = rebuildRomfs(fNew, newRomfsOffset);
-        fNew.seek(0x1B0);
-        fNew.write((int) newRomfsOffset / media_unit_size);
-        fNew.seek(0x1B4);
-        fNew.write((int) newRomfsLength / media_unit_size);
+        writeIntLE(fNew, 0x1B0, (int) (newRomfsOffset / media_unit_size));
+        writeIntLE(fNew, 0x1B4, (int) (newRomfsLength / media_unit_size));
 
         // Lastly, reconstruct the superblock hashes
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -339,12 +335,30 @@ public class NCCH {
         fNew.seek(0x1E0);
         fNew.write(romfsSuperblockHash);
 
+        // Update the NCCH content size (stored in 0x200-byte media units) and
+        // make the output length agree with the rebuilt RomFS end.
+        long newContentLength = alignLong(newRomfsOffset + newRomfsLength, media_unit_size);
+        fNew.setLength(newContentLength);
+        byte[] contentSize = new byte[8];
+        FileFunctions.writeFullLong(contentSize, 0, newContentLength / media_unit_size);
+        fNew.seek(0x104);
+        fNew.write(contentSize);
+
         // While totally optional, let's zero out the NCCH signature so that
         // it's clear this isn't a properly-signed ROM
         byte[] zeroedSignature = new byte[0x100];
         fNew.seek(0x0);
         fNew.write(zeroedSignature);
         fNew.close();
+    }
+
+    /** Writes a 32-bit little-endian NCCH header field. RandomAccessFile.write(int) writes only one byte. */
+    private static void writeIntLE(RandomAccessFile file, long offset, int value) throws IOException {
+        file.seek(offset);
+        file.write(value & 0xFF);
+        file.write((value >>> 8) & 0xFF);
+        file.write((value >>> 16) & 0xFF);
+        file.write((value >>> 24) & 0xFF);
     }
 
     private long rebuildExefs(RandomAccessFile fNew, long newExefsOffset) throws IOException, NoSuchAlgorithmException {
