@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+    id 'io.github.file5.guidesigner' version '1.0.2'
+}
+
+group = 'com.dabomstew'
+version = 'expansion-items-randomizer'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://www.jetbrains.com/intellij-repository/releases' }
+    maven { url 'https://www.jetbrains.com/intellij-repository/dependencies' }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+        resources {
+            srcDirs = ['src']
+            exclude '**/*.java'
+            exclude '**/*.form'
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.jetbrains.intellij.java:java-gui-forms-rt:251.28774.11'
+    implementation 'com.jgoodies:forms:1.1-preview'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 8
+}
+
+jar {
+    archiveFileName = 'PokeRandoZX.jar'
+    manifest {
+        attributes 'Main-Class': 'com.dabomstew.pkrandom.newgui.NewRandomizerGUI'
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
